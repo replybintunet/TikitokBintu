@@ -1,4 +1,4 @@
-import subprocess, threading, signal, os, time
+import subprocess, threading, signal
 from flask import Flask, request, jsonify, render_template_string
 
 app = Flask(__name__)
@@ -8,8 +8,7 @@ logs = []
 status = "Idle"
 muted = False
 
-HTML = """
-<!DOCTYPE html>
+HTML = """<!DOCTYPE html>
 <html>
 <head>
 <title>BintuNet</title>
@@ -80,7 +79,6 @@ setInterval(()=>{
 def reader(pipe):
     for line in iter(pipe.readline, b''):
         logs.append(line.decode(errors="ignore").strip())
-    pipe.close()
 
 @app.route("/")
 def index():
@@ -94,13 +92,65 @@ def start():
 
     tiktok = data["tiktok"]
     yt = data["yt"]
-    fb = data.get("fb","")
+    fb = data.get("fb", "")
     fps = data["fps"]
 
     if data["ratio"] == "mobile":
         scale = "scale=720:-2,pad=720:1280:(ow-iw)/2:(oh-ih)/2"
     else:
         scale = "scale=1280:-2,pad=1280:720:(ow-iw)/2:(oh-ih)/2"
+
+    outputs = f"[f=flv]{yt}"
+    if fb:
+        outputs += f"|[f=flv]{fb}"
+
+    cmd = f"""
+streamlink --http-header "User-Agent=Mozilla/5.0 (Linux; Android 10)" \
+--http-header "Referer=https://www.tiktok.com/" \
+-O {tiktok} best | \
+ffmpeg -re -i pipe:0 \
+-map 0:v -map 0:a \
+-vf "{scale}" \
+-r {fps} \
+-c:v libx264 -preset ultrafast -tune zerolatency \
+-pix_fmt yuv420p \
+-c:a aac -b:a 128k -ar 44100 -ac 2 \
+-af "volume=1,aresample=async=1:first_pts=0" \
+-f tee "{outputs}"
+"""
+
+    process = subprocess.Popen(cmd, shell=True, stderr=subprocess.PIPE)
+    threading.Thread(target=reader, args=(process.stderr,), daemon=True).start()
+
+    status = "Streaming"
+    return jsonify(ok=True)
+
+@app.route("/mute", methods=["POST"])
+def mute():
+    global muted, process
+    if not process:
+        return jsonify(ok=False)
+
+    muted = not muted
+    vol = "0" if muted else "1"
+    process.stdin = subprocess.PIPE
+    return jsonify(muted=muted)
+
+@app.route("/stop", methods=["POST"])
+def stop():
+    global process, status
+    if process:
+        process.terminate()
+        process = None
+    status = "Stopped"
+    return jsonify(ok=True)
+
+@app.route("/logs")
+def get_logs():
+    return jsonify(logs=logs[-200:], status=status)
+
+if __name__ == "__main__":
+    app.run("127.0.0.1", 5000)        scale = "scale=1280:-2,pad=1280:720:(ow-iw)/2:(oh-ih)/2"
 
     outputs = f"[f=flv]{yt}"
     if fb:
