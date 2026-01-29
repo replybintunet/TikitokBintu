@@ -108,6 +108,61 @@ def start():
     if fb:
         outputs += f"|[f=flv]{fb}"
 
+    cmd = [
+        "bash", "-c",
+        f"""
+streamlink \
+--http-header "User-Agent=Mozilla/5.0 (Linux; Android 10)" \
+--http-header "Referer=https://www.tiktok.com/" \
+-O {tiktok} hd | \
+ffmpeg -re -i pipe:0 \
+-map 0:v:0 -map 0:a:0 \
+-vf "{scale}" \
+-r {fps} \
+-c:v libx264 -preset ultrafast -tune zerolatency \
+-g {int(fps)*2} \
+-pix_fmt yuv420p \
+-b:v 1200k -maxrate 1200k -bufsize 2400k \
+-c:a aac -b:a 128k -ar 44100 -ac 2 \
+-af "aresample=async=1:first_pts=0" \
+-f tee "{outputs}"
+"""
+    ]
+
+    process = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE
+    )
+
+    threading.Thread(target=reader, args=(process.stderr,), daemon=True).start()
+    status = "Streaming"
+    return jsonify(ok=True)
+
+@app.route("/stop", methods=["POST"])
+def stop():
+    global process, status
+    if process:
+        process.send_signal(signal.SIGTERM)
+        process = None
+    status = "Stopped"
+    return jsonify(ok=True)
+
+@app.route("/logs")
+def get_logs():
+    return jsonify(logs=logs[-300:], status=status)
+
+if __name__ == "__main__":
+    app.run("127.0.0.1", 5000)
+    if ratio == "mobile":
+        scale = "scale=720:-2:force_original_aspect_ratio=decrease,pad=720:1280:(ow-iw)/2:(oh-ih)/2"
+    else:
+        scale = "scale=1280:-2:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2"
+
+    outputs = f"[f=flv]{yt}"
+    if fb:
+        outputs += f"|[f=flv]{fb}"
+
     cmd = f"""
 streamlink \
 --http-header "User-Agent=Mozilla/5.0 (Linux; Android 10)" \
