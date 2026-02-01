@@ -175,11 +175,11 @@ const form = useForm<StreamConfig>({
   size="sm" 
   className="text-xs h-8"
   onClick={() => {
-     setExtraTargets(prev => [
-       ...prev,
-       { id: Date.now(), rtmp: "", key: "" }
-     ]);
-  }}
+  setExtraTargets(prev => [
+    ...prev,
+    { id: Date.now(), rtmp: "", key: "", isStreaming: false }
+  ]);
+}}
 >
   + Add Stream Target
 </Button>
