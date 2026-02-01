@@ -37,11 +37,7 @@ export function StreamControls({
   const [isCheckingLive, setIsCheckingLive] = useState(false);
   const [liveStatus, setLiveStatus] = useState<{ isLive: boolean; reason?: string } | null>(null);
 
-  const [extraTargets, setExtraTargets] = useState<
-  { id: number; rtmp: string; key: string; isStreaming: boolean }[]
->([]);
-
-const form = useForm<StreamConfig>({
+  const form = useForm<StreamConfig>({
     resolver: zodResolver(streamConfigSchema),
     defaultValues: defaultConfig || {
       tiktokUsername: "",
@@ -175,105 +171,17 @@ const form = useForm<StreamConfig>({
   size="sm" 
   className="text-xs h-8"
   onClick={() => {
-  setExtraTargets(prev => [
-    ...prev,
-    { id: Date.now(), rtmp: "", key: "", isStreaming: false }
-  ]);
-}}
+     setExtraTargets(prev => [
+       ...prev,
+       { id: Date.now(), rtmp: "", key: "" }
+     ]);
+  }}
 >
   + Add Stream Target
 </Button>
           </div>
 
-          {extraTargets.map((target, index) => (
-  <div
-    key={target.id}
-    className="border border-border/50 rounded-xl p-4 bg-secondary/30 space-y-3"
-  >
-    <div className="flex items-center justify-between">
-      <h4 className="font-semibold text-sm">
-        Extra Stream Target {index + 1}
-      </h4>
-
-      <Badge variant="outline">Idle</Badge>
-    </div>
-
-    <Input
-      placeholder="RTMP URL (e.g rtmp://a.rtmp.youtube.com/live2)"
-      className="bg-secondary/50 border-border/50 h-11"
-      disabled={isStreaming}
-      value={target.rtmp}
-      onChange={(e) => {
-        const updated = [...extraTargets];
-        updated[index].rtmp = e.target.value;
-        setExtraTargets(updated);
-      }}
-    />
-
-    <Input
-      placeholder="Stream Key"
-      className="bg-secondary/50 border-border/50 h-11"
-      disabled={isStreaming}
-      value={target.key}
-      onChange={(e) => {
-        const updated = [...extraTargets];
-        updated[index].key = e.target.value;
-        setExtraTargets(updated);
-      }}
-    />
-
-    <div className="flex items-center gap-2 pt-2">
-      <Button
-  size="sm"
-  className="gap-1"
-  disabled={target.isStreaming}
-  onClick={() => {
-    setExtraTargets(prev =>
-      prev.map(t =>
-        t.id === target.id
-          ? { ...t, isStreaming: true }
-          : t
-      )
-    );
-  }}
->
-  <Play className="w-4 h-4" />
-  Start
-</Button>
-
-      <Button
-  size="sm"
-  variant="destructive"
-  disabled={!target.isStreaming}
-  onClick={() => {
-    setExtraTargets(prev =>
-      prev.map(t =>
-        t.id === target.id
-          ? { ...t, isStreaming: false }
-          : t
-      )
-    );
-  }}
->
-  <Square className="w-4 h-4" />
-  Stop
-</Button>
-      <Button
-        size="sm"
-        variant="ghost"
-        className="ml-auto"
-        onClick={() =>
-          setExtraTargets(prev =>
-            prev.filter(t => t.id !== target.id)
-          )
-        }
-      >
-        ✕
-      </Button>
-    </div>
-  </div>
-))}
-<div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <FormField
               control={form.control}
               name="quality"
@@ -378,7 +286,7 @@ const form = useForm<StreamConfig>({
                     </>
                   )}
                 </Button>
-                
+
                 <Button 
                   type="button" 
                   onClick={() => onMute(!isMuted)}
@@ -404,7 +312,7 @@ const form = useForm<StreamConfig>({
                 </Button>
               </div>
             )}
-            
+
             {isStreaming && (
               <Button
                 type="submit"
