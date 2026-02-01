@@ -38,7 +38,7 @@ export function StreamControls({
   const [liveStatus, setLiveStatus] = useState<{ isLive: boolean; reason?: string } | null>(null);
 
   const [extraTargets, setExtraTargets] = useState<
-  { id: number; rtmp: string; key: string }[]
+  { id: number; rtmp: string; key: string; isStreaming: boolean }[]
 >([]);
 
 const form = useForm<StreamConfig>({
