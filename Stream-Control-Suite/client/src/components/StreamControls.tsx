@@ -185,56 +185,69 @@ const form = useForm<StreamConfig>({
 </Button>
           </div>
 
-          {extraTargets.length > 0 && (
-  <div className="space-y-4 pt-2">
-    {extraTargets.map((target, index) => (
-      <div
-        key={target.id}
-        className="border border-border/40 rounded-xl p-4 bg-secondary/30"
+          {extraTargets.map((target, index) => (
+  <div
+    key={target.id}
+    className="border border-border/50 rounded-xl p-4 bg-secondary/30 space-y-3"
+  >
+    <div className="flex items-center justify-between">
+      <h4 className="font-semibold text-sm">
+        Extra Stream Target {index + 1}
+      </h4>
+
+      <Badge variant="outline">Idle</Badge>
+    </div>
+
+    <Input
+      placeholder="RTMP URL (e.g rtmp://a.rtmp.youtube.com/live2)"
+      className="bg-secondary/50 border-border/50 h-11"
+      disabled={isStreaming}
+      value={target.rtmp}
+      onChange={(e) => {
+        const updated = [...extraTargets];
+        updated[index].rtmp = e.target.value;
+        setExtraTargets(updated);
+      }}
+    />
+
+    <Input
+      placeholder="Stream Key"
+      className="bg-secondary/50 border-border/50 h-11"
+      disabled={isStreaming}
+      value={target.key}
+      onChange={(e) => {
+        const updated = [...extraTargets];
+        updated[index].key = e.target.value;
+        setExtraTargets(updated);
+      }}
+    />
+
+    <div className="flex items-center gap-2 pt-2">
+      <Button size="sm" className="gap-1">
+        <Play className="w-4 h-4" />
+        Start
+      </Button>
+
+      <Button size="sm" variant="destructive" className="gap-1">
+        <Square className="w-4 h-4" />
+        Stop
+      </Button>
+
+      <Button
+        size="sm"
+        variant="ghost"
+        className="ml-auto"
+        onClick={() =>
+          setExtraTargets(prev =>
+            prev.filter(t => t.id !== target.id)
+          )
+        }
       >
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-sm font-semibold">
-            Extra Stream Target {index + 1}
-          </p>
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            onClick={() =>
-              setExtraTargets(prev =>
-                prev.filter(t => t.id !== target.id)
-              )
-            }
-          >
-            ✕
-          </Button>
-        </div>
-
-        <Input
-          placeholder="RTMP URL (e.g rtmp://a.rtmp.youtube.com/live2)"
-          className="mb-2"
-          value={target.rtmp}
-          onChange={(e) => {
-            const updated = [...extraTargets];
-            updated[index].rtmp = e.target.value;
-            setExtraTargets(updated);
-          }}
-        />
-
-        <Input
-          placeholder="Stream Key"
-          value={target.key}
-          onChange={(e) => {
-            const updated = [...extraTargets];
-            updated[index].key = e.target.value;
-            setExtraTargets(updated);
-          }}
-        />
-      </div>
-    ))}
+        ✕
+      </Button>
+    </div>
   </div>
-)}
-
+))}
 <div className="grid grid-cols-3 gap-4">
             <FormField
               control={form.control}
