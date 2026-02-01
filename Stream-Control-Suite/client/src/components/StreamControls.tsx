@@ -37,7 +37,11 @@ export function StreamControls({
   const [isCheckingLive, setIsCheckingLive] = useState(false);
   const [liveStatus, setLiveStatus] = useState<{ isLive: boolean; reason?: string } | null>(null);
 
-  const form = useForm<StreamConfig>({
+  const [extraTargets, setExtraTargets] = useState<
+  { id: number; rtmp: string; key: string }[]
+>([]);
+
+const form = useForm<StreamConfig>({
     resolver: zodResolver(streamConfigSchema),
     defaultValues: defaultConfig || {
       tiktokUsername: "",
@@ -181,7 +185,57 @@ export function StreamControls({
 </Button>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          {extraTargets.length > 0 && (
+  <div className="space-y-4 pt-2">
+    {extraTargets.map((target, index) => (
+      <div
+        key={target.id}
+        className="border border-border/40 rounded-xl p-4 bg-secondary/30"
+      >
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-sm font-semibold">
+            Extra Stream Target {index + 1}
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() =>
+              setExtraTargets(prev =>
+                prev.filter(t => t.id !== target.id)
+              )
+            }
+          >
+            ✕
+          </Button>
+        </div>
+
+        <Input
+          placeholder="RTMP URL (e.g rtmp://a.rtmp.youtube.com/live2)"
+          className="mb-2"
+          value={target.rtmp}
+          onChange={(e) => {
+            const updated = [...extraTargets];
+            updated[index].rtmp = e.target.value;
+            setExtraTargets(updated);
+          }}
+        />
+
+        <Input
+          placeholder="Stream Key"
+          value={target.key}
+          onChange={(e) => {
+            const updated = [...extraTargets];
+            updated[index].key = e.target.value;
+            setExtraTargets(updated);
+          }}
+        />
+      </div>
+    ))}
+  </div>
+)}
+
+<div className="grid grid-cols-3 gap-4">
             <FormField
               control={form.control}
               name="quality"
