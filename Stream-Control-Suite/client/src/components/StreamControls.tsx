@@ -223,16 +223,41 @@ const form = useForm<StreamConfig>({
     />
 
     <div className="flex items-center gap-2 pt-2">
-      <Button size="sm" className="gap-1">
-        <Play className="w-4 h-4" />
-        Start
-      </Button>
+      <Button
+  size="sm"
+  className="gap-1"
+  disabled={target.isStreaming}
+  onClick={() => {
+    setExtraTargets(prev =>
+      prev.map(t =>
+        t.id === target.id
+          ? { ...t, isStreaming: true }
+          : t
+      )
+    );
+  }}
+>
+  <Play className="w-4 h-4" />
+  Start
+</Button>
 
-      <Button size="sm" variant="destructive" className="gap-1">
-        <Square className="w-4 h-4" />
-        Stop
-      </Button>
-
+      <Button
+  size="sm"
+  variant="destructive"
+  disabled={!target.isStreaming}
+  onClick={() => {
+    setExtraTargets(prev =>
+      prev.map(t =>
+        t.id === target.id
+          ? { ...t, isStreaming: false }
+          : t
+      )
+    );
+  }}
+>
+  <Square className="w-4 h-4" />
+  Stop
+</Button>
       <Button
         size="sm"
         variant="ghost"
