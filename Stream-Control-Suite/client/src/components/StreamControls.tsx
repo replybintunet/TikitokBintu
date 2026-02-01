@@ -166,16 +166,19 @@ export function StreamControls({
 
           <div className="flex items-center gap-2 py-2">
              <Button 
-                type="button" 
-                variant="outline" 
-                size="sm" 
-                className="text-xs h-8"
-                onClick={() => {
-                   toast({ title: "Coming Soon", description: "Multi-platform support is currently limited to YouTube and Facebook." });
-                }}
-             >
-                + Add Stream Target
-             </Button>
+  type="button" 
+  variant="outline" 
+  size="sm" 
+  className="text-xs h-8"
+  onClick={() => {
+     setExtraTargets(prev => [
+       ...prev,
+       { id: Date.now(), rtmp: "", key: "" }
+     ]);
+  }}
+>
+  + Add Stream Target
+</Button>
           </div>
 
           <div className="grid grid-cols-3 gap-4">
