@@ -1,137 +1,309 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useLocation } from "wouter";
-import { useStreamStatus, useStartStream, useStopStream, useMuteStream } from "@/hooks/use-stream";
-import { StreamControls } from "@/components/StreamControls";
-import { LogViewer } from "@/components/LogViewer";
-import { StatusBadge } from "@/components/StatusBadge";
-import { Button } from "@/components/ui/button";
-import { LogOut, Radio } from "lucide-react";
+import { useSettings, useUpdateSettings, useStreamStatus, useStartStream, useStopStream, useRestartStream, useStreamLogs } from "@/hooks/use-stream";
+import { StatusIndicator } from "@/components/StatusIndicator";
+import { LogConsole } from "@/components/LogConsole";
+import { Radio, Monitor, Smartphone, Youtube, Facebook, Video, Settings2, Play, Square, RefreshCw, Volume2, VolumeX } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { insertSettingsSchema, type InsertSettings } from "@shared/schema";
+import { motion, AnimatePresence } from "framer-motion";
+import { clsx } from "clsx";
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
-  const { data: statusData, error, isLoading } = useStreamStatus();
   
-  const startMutation = useStartStream();
-  const stopMutation = useStopStream();
-  const muteMutation = useMuteStream();
-
-const [streams, setStreams] = useState<
-  { id: number; config?: any }[]
->([
-  { id: Date.now() }
-]);
-
+  // Verify auth on mount
   useEffect(() => {
-    if (error && (error as Error).message === "Unauthorized") {
-      setLocation("/login");
+    const auth = localStorage.getItem("bintunet_auth");
+    if (!auth) {
+      setLocation("/");
     }
-  }, [error, setLocation]);
+  }, [setLocation]);
 
-  const handleLogout = () => {
-    // In a real app we'd clear tokens, but here we just redirect 
-    // since auth is session/cookie based or simple state
-    setLocation("/login");
+  // Data fetching
+  const { data: statusData } = useStreamStatus();
+  const { data: logsData } = useStreamLogs();
+  const { data: settingsData, isPending: isLoadingSettings } = useSettings();
+
+  // Mutations
+  const updateSettings = useUpdateSettings();
+  const startStream = useStartStream();
+  const stopStream = useStopStream();
+  const restartStream = useRestartStream();
+
+  // Form setup
+  const form = useForm<InsertSettings>({
+    resolver: zodResolver(insertSettingsSchema),
+    defaultValues: {
+      tiktokUrl: "",
+      youtubeUrl: "",
+      facebookUrl: "",
+      videoQuality: "best",
+      fps: 30,
+      ratioMode: "mobile",
+      isMuted: false,
+    },
+  });
+
+  // Update form when data loads
+  useEffect(() => {
+    if (settingsData) {
+      form.reset(settingsData);
+    }
+  }, [settingsData, form]);
+
+  const onSaveSettings = (data: InsertSettings) => {
+    updateSettings.mutate(data);
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
-          <p className="text-muted-foreground animate-pulse">Connecting to BintuNet...</p>
-        </div>
-      </div>
-    );
-  }
+  const handleMuteToggle = () => {
+    const current = form.getValues("isMuted");
+    form.setValue("isMuted", !current);
+    // Auto-save mute state
+    updateSettings.mutate({ ...form.getValues(), isMuted: !current });
+  };
 
-  const isStreaming = statusData?.isStreaming ?? false;
-  const currentStatus = statusData?.status ?? "idle";
-  const isMuted = statusData?.isMuted ?? false;
-  const logs = statusData?.logs ?? [];
-  const config = statusData?.config;
-
-  const isPending = startMutation.isPending || stopMutation.isPending;
+  const isStreaming = statusData?.status === "streaming";
+  const isReconnecting = statusData?.status === "reconnecting";
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary/20">
+      
       {/* Header */}
-      <header className="border-b border-border/40 bg-card/30 backdrop-blur-xl sticky top-0 z-50">
+      <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary ring-1 ring-primary/20">
-              <Radio className="w-6 h-6" />
+            <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
+              <Radio className="w-5 h-5 text-primary" />
             </div>
-            <h1 className="text-xl md:text-2xl font-bold font-display tracking-tight hidden sm:block">
-              BintuNet Stream
+            <h1 className="font-display font-bold text-lg tracking-tight hidden sm:block">
+              BintuNet <span className="text-primary">Stream</span>
             </h1>
           </div>
           
-          <div className="flex items-center gap-4">
-            <StatusBadge status={currentStatus} />
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={handleLogout}
-              className="text-muted-foreground hover:text-foreground hover:bg-secondary/50 rounded-full w-10 h-10"
-              title="Logout"
-            >
-              <LogOut className="w-5 h-5" />
-            </Button>
-          </div>
+          <StatusIndicator 
+            status={statusData?.status || "idle"} 
+            uptime={statusData?.uptime || null} 
+          />
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="flex-1 container mx-auto px-4 py-6 md:py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[calc(100vh-8rem)] min-h-[600px]">
+      <main className="container mx-auto px-4 py-8 space-y-6">
+        
+        {/* Quick Actions / Controls */}
+        <section className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => startStream.mutate()}
+            disabled={isStreaming || startStream.isPending}
+            className={clsx(
+              "md:col-span-2 h-24 rounded-2xl font-display font-bold text-xl shadow-lg transition-all flex items-center justify-center gap-3",
+              isStreaming 
+                ? "bg-zinc-800 text-zinc-500 cursor-not-allowed opacity-50" 
+                : "bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-green-900/20 hover:shadow-green-900/40"
+            )}
+          >
+            {startStream.isPending ? (
+               <RefreshCw className="animate-spin w-6 h-6" />
+            ) : (
+               <Play className="fill-current w-6 h-6" />
+            )}
+            START LIVE
+          </motion.button>
+
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => stopStream.mutate()}
+            disabled={!isStreaming || stopStream.isPending}
+            className={clsx(
+              "h-24 rounded-2xl font-bold text-lg shadow-lg transition-all flex flex-col items-center justify-center gap-2",
+              !isStreaming
+                ? "bg-zinc-800 text-zinc-500 cursor-not-allowed opacity-50"
+                : "bg-red-500/10 text-red-500 border-2 border-red-500/20 hover:bg-red-500/20 hover:border-red-500/50"
+            )}
+          >
+            <Square className="fill-current w-6 h-6" />
+            STOP
+          </motion.button>
+
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => restartStream.mutate()}
+            disabled={!isStreaming && !isReconnecting}
+            className={clsx(
+              "h-24 rounded-2xl font-bold text-lg shadow-lg transition-all flex flex-col items-center justify-center gap-2",
+              (!isStreaming && !isReconnecting)
+                ? "bg-zinc-800 text-zinc-500 cursor-not-allowed opacity-50"
+                : "bg-zinc-800 text-zinc-200 hover:bg-zinc-700"
+            )}
+          >
+            <RefreshCw className={clsx("w-6 h-6", restartStream.isPending && "animate-spin")} />
+            RESTART
+          </motion.button>
+        </section>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-16rem)] min-h-[600px]">
           
-          {/* Left Panel: Controls */}
-          <div className="lg:col-span-5 xl:col-span-4 flex flex-col gap-6">
-  {streams.map((stream) => (
-    <StreamControls
-      key={stream.id}
-      isStreaming={isStreaming}
-      isMuted={isMuted}
-      defaultConfig={stream.config}
-      onStart={(data) =>
-        startMutation.mutate({ ...data, streamId: stream.id })
-      }
-      onStop={() =>
-        stopMutation.mutate({ streamId: stream.id })
-      }
-      onMute={(muted) =>
-        muteMutation.mutate({ streamId: stream.id })
-      }
-      isPending={isPending}
-    />
-  ))}
+          {/* Configuration Column */}
+          <div className="lg:col-span-2 flex flex-col gap-6">
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-card border border-border/50 rounded-2xl p-6 shadow-xl"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-2">
+                  <Settings2 className="w-5 h-5 text-primary" />
+                  <h2 className="font-display font-semibold text-lg">Configuration</h2>
+                </div>
+                
+                <button
+                  type="button"
+                  onClick={handleMuteToggle}
+                  className={clsx(
+                    "flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
+                    form.watch("isMuted") 
+                      ? "bg-red-500/10 text-red-500 border border-red-500/20" 
+                      : "bg-zinc-800 text-zinc-400 hover:text-zinc-200"
+                  )}
+                >
+                  {form.watch("isMuted") ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                  {form.watch("isMuted") ? "MUTED" : "UNMUTED"}
+                </button>
+              </div>
 
-  <Button
-    variant="outline"
-    size="sm"
-    className="self-start"
-    onClick={() =>
-      setStreams(prev => [...prev, { id: Date.now() }])
-    }
-  >
-    + Add Stream
-  </Button>
-            
-            
-            <div className="bg-gradient-to-br from-primary/20 via-secondary/30 to-background border border-border/50 rounded-2xl p-6 relative overflow-hidden hidden lg:flex flex-1 flex-col justify-end">
-              <div className="absolute top-0 right-0 p-32 bg-primary/20 blur-[100px] rounded-full" />
-              <h3 className="text-2xl font-bold font-display mb-2 relative z-10">Stream like a Pro</h3>
-              <p className="text-muted-foreground relative z-10">
-                Optimized for Termux & Ubuntu with FFmpeg + Streamlink pipeline. 
-                Dual-streaming to YouTube and Facebook supported.
-              </p>
-            </div>
+              {isLoadingSettings ? (
+                <div className="h-64 flex items-center justify-center">
+                  <RefreshCw className="w-8 h-8 text-muted-foreground animate-spin" />
+                </div>
+              ) : (
+                <form onSubmit={form.handleSubmit(onSaveSettings)} className="space-y-6">
+                  {/* Sources Section */}
+                  <div className="space-y-4">
+                    <label className="text-xs font-mono uppercase text-muted-foreground tracking-wider flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-pink-500" />
+                      TikTok Source
+                    </label>
+                    <input
+                      {...form.register("tiktokUrl")}
+                      placeholder="Enter TikTok Live URL..."
+                      className="w-full bg-background/50 border border-border rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-mono uppercase text-muted-foreground tracking-wider flex items-center gap-2">
+                        <Youtube className="w-3 h-3 text-red-500" />
+                        YouTube RTMP
+                      </label>
+                      <input
+                        {...form.register("youtubeUrl")}
+                        placeholder="rtmp://a.rtmp.youtube.com/..."
+                        className="w-full bg-background/50 border border-border rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-mono uppercase text-muted-foreground tracking-wider flex items-center gap-2">
+                        <Facebook className="w-3 h-3 text-blue-500" />
+                        Facebook RTMP
+                      </label>
+                      <input
+                        {...form.register("facebookUrl")}
+                        placeholder="rtmps://live-api-s.facebook.com/..."
+                        className="w-full bg-background/50 border border-border rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="h-px bg-border/50 w-full my-6" />
+
+                  {/* Settings Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                    <div className="space-y-3">
+                      <label className="text-sm font-medium">Quality</label>
+                      <div className="relative">
+                        <Video className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <select
+                          {...form.register("videoQuality")}
+                          className="w-full appearance-none bg-background/50 border border-border rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        >
+                          <option value="best">Best Available</option>
+                          <option value="720p">720p (HD)</option>
+                          <option value="480p">480p (SD)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <label className="text-sm font-medium">Framerate</label>
+                      <div className="relative">
+                        <Monitor className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <select
+                          {...form.register("fps", { valueAsNumber: true })}
+                          className="w-full appearance-none bg-background/50 border border-border rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        >
+                          <option value={30}>30 FPS</option>
+                          <option value={25}>25 FPS</option>
+                          <option value={20}>20 FPS</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <label className="text-sm font-medium">Aspect Ratio</label>
+                      <div className="flex bg-background/50 border border-border rounded-xl p-1">
+                        <label className={clsx(
+                          "flex-1 flex items-center justify-center gap-2 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-all",
+                          form.watch("ratioMode") === "mobile" 
+                            ? "bg-primary text-primary-foreground shadow-sm" 
+                            : "text-muted-foreground hover:bg-zinc-800"
+                        )}>
+                          <input type="radio" value="mobile" {...form.register("ratioMode")} className="hidden" />
+                          <Smartphone className="w-3 h-3" />
+                          Mobile
+                        </label>
+                        <label className={clsx(
+                          "flex-1 flex items-center justify-center gap-2 py-1.5 rounded-lg text-xs font-medium cursor-pointer transition-all",
+                          form.watch("ratioMode") === "desktop" 
+                            ? "bg-primary text-primary-foreground shadow-sm" 
+                            : "text-muted-foreground hover:bg-zinc-800"
+                        )}>
+                          <input type="radio" value="desktop" {...form.register("ratioMode")} className="hidden" />
+                          <Monitor className="w-3 h-3" />
+                          Desktop
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 flex justify-end">
+                    <button
+                      type="submit"
+                      disabled={updateSettings.isPending}
+                      className="px-8 py-3 bg-zinc-100 text-zinc-900 rounded-xl font-semibold hover:bg-white hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {updateSettings.isPending ? "Saving..." : "Save Configuration"}
+                    </button>
+                  </div>
+                </form>
+              )}
+            </motion.div>
           </div>
 
-          {/* Right Panel: Logs */}
-          <div className="lg:col-span-7 xl:col-span-8 h-[500px] lg:h-auto">
-            <LogViewer logs={logs} />
-          </div>
+          {/* Logs Column */}
+          <motion.div 
+             initial={{ opacity: 0, x: 10 }}
+             animate={{ opacity: 1, x: 0 }}
+             className="lg:col-span-1 h-full min-h-[400px]"
+          >
+            <LogConsole logs={logsData || []} className="h-full shadow-xl" />
+          </motion.div>
+
         </div>
       </main>
     </div>
