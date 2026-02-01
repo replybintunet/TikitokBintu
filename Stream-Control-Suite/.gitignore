@@ -1,7 +1,0 @@
-node_modules/
-__pycache__/
-venv/
-env/
-local/
-bin/
-latest.json
