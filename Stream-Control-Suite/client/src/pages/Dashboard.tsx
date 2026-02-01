@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useStreamStatus, useStartStream, useStopStream, useMuteStream } from "@/hooks/use-stream";
 import { StreamControls } from "@/components/StreamControls";
@@ -14,6 +14,12 @@ export default function Dashboard() {
   const startMutation = useStartStream();
   const stopMutation = useStopStream();
   const muteMutation = useMuteStream();
+
+const [streams, setStreams] = useState<
+  { id: number; config?: any }[]
+>([
+  { id: Date.now() }
+]);
 
   useEffect(() => {
     if (error && (error as Error).message === "Unauthorized") {
@@ -81,15 +87,36 @@ export default function Dashboard() {
           
           {/* Left Panel: Controls */}
           <div className="lg:col-span-5 xl:col-span-4 flex flex-col gap-6">
-            <StreamControls
-              isStreaming={isStreaming}
-              isMuted={isMuted}
-              defaultConfig={config}
-              onStart={(data) => startMutation.mutate(data)}
-              onStop={() => stopMutation.mutate(undefined)}
-              onMute={(muted) => muteMutation.mutate(muted)}
-              isPending={isPending}
-            />
+  {streams.map((stream) => (
+    <StreamControls
+      key={stream.id}
+      isStreaming={isStreaming}
+      isMuted={isMuted}
+      defaultConfig={stream.config}
+      onStart={(data) =>
+        startMutation.mutate({ ...data, streamId: stream.id })
+      }
+      onStop={() =>
+        stopMutation.mutate({ streamId: stream.id })
+      }
+      onMute={(muted) =>
+        muteMutation.mutate({ streamId: stream.id })
+      }
+      isPending={isPending}
+    />
+  ))}
+
+  <Button
+    variant="outline"
+    size="sm"
+    className="self-start"
+    onClick={() =>
+      setStreams(prev => [...prev, { id: Date.now() }])
+    }
+  >
+    + Add Stream
+  </Button>
+            
             
             <div className="bg-gradient-to-br from-primary/20 via-secondary/30 to-background border border-border/50 rounded-2xl p-6 relative overflow-hidden hidden lg:flex flex-1 flex-col justify-end">
               <div className="absolute top-0 right-0 p-32 bg-primary/20 blur-[100px] rounded-full" />
